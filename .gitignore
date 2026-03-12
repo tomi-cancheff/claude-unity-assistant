@@ -95,5 +95,50 @@ InitTestScene*.unity*
 /[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
 /[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
 
+# Claude Assistant — nunca subir la API Key
+**/ClaudeConfig.asset
+**/ClaudeConfig.asset.meta
+```
+
+3. **Commit changes → Commit directly to main**
+
+---
+
+## Paso 6 — Subir los archivos
+
+1. En el repo → **Add file → Upload files**
+2. Arrastrá la carpeta `ClaudeAssistant` completa
+3. Arrastrá el `ClaudeAssistant_v1.0.unitypackage`
+4. Mensaje de commit: `feat: initial release - Claude Game Assistant`
+5. Click **Commit changes**
+
+---
+
+## Paso 7 — Crear el Release
+
+1. Panel derecho del repo → **Releases → Create a new release**
+2. Tag: `v1.0` — Title: `Claude Game Assistant v1.0`
+3. Descripción:
+```
+Herramienta de Editor para Unity que integra la API de Claude 
+para prototipar mecánicas y construir escenas desde lenguaje natural.
+
+## Features
+- 📄 Script Mode: genera MonoBehaviours desde prompts
+- 🏗️ Scene Mode: construye GameObjects en la escena activa
+- 💬 Historial persistente (sobrevive recompilaciones)
+- 🔒 API Key en EditorPrefs, nunca en el proyecto
+- ↩️ Undo completo en escenas generadas (Ctrl+Z)
+
+## Instalación
+1. Descargá el .unitypackage desde esta release
+2. En Unity: Assets → Import Package → Custom Package
+3. Abrí Tools → Claude Game Assistant (Ctrl+Shift+C)
+4. Ingresá tu API key (console.anthropic.com)
+
+## Requisitos
+- Unity 6.0 o superior
+- API Key de Anthropic
+
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
