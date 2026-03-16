@@ -26,8 +26,9 @@ namespace ClaudeAssistant.Core
 
         private static readonly Dictionary<GenerationMode, IGenerationHandler> _handlers = new()
         {
-            { GenerationMode.Script, new ScriptGenerationHandler() },
-            { GenerationMode.Scene,  new SceneGenerationHandler()  }
+            { GenerationMode.Script,  new ScriptGenerationHandler() },
+            { GenerationMode.Scene,   new SceneGenerationHandler()  },
+            { GenerationMode.Consult, new ConsultHandler()          }
         };
 
         // ── Dependencies ──────────────────────────────────────
@@ -92,7 +93,7 @@ namespace ClaudeAssistant.Core
                 : IntentClassifier.Classify(prompt);
 
             if (mode == GenerationMode.Unknown)
-                mode = GenerationMode.Script;
+                mode = GenerationMode.Consult;
 
             // Add user message to history before awaiting
             _history.Add(new ChatMessage(MessageRole.User, prompt, mode));

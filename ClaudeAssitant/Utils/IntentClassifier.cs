@@ -1,16 +1,18 @@
 // ============================================================
 //  IntentClassifier.cs
 //  Lightweight keyword classifier that decides whether a prompt
-//  targets Script generation or Scene construction.
+//  targets Script generation, Scene construction, or a Consult.
 //
 //  Deliberately simple — fast, deterministic, zero API cost.
 //  Extend the keyword lists to tune accuracy.
 //
 //  Classification rules (in order):
-//    1. If prompt contains a Script override keyword → Script always wins
+//    1. Script override keyword present → Script always wins
 //    2. Count Scene vs Script keyword matches
-//    3. On tie → Script wins (safer default: scripts can always be attached,
-//       scene construction is harder to undo mentally)
+//    3. On tie → Script wins (safer default: scripts can always be
+//       attached, scene construction is harder to undo mentally)
+//    4. Scene == 0 && Script == 0 && Consult > 0 → Consult
+//    5. All scores == 0 → Unknown (controller falls back to Consult)
 // ============================================================
 
 using System.Text.RegularExpressions;
@@ -42,6 +44,22 @@ namespace ClaudeAssistant.Utils
             "mapa", "map", "laberinto", "maze",
             "build scene", "create scene", "add object", "place object",
             "coloca", "posiciona", "distribuye", "instancia"
+        };
+
+        // ── Consult keywords ──────────────────────────────────
+        // Lower priority than Script and Scene — only wins when both score 0.
+
+        private static readonly string[] ConsultKeywords =
+        {
+            "hola", "hello", "hey", "buenas", "buen dia", "buen día",
+            "gracias", "ok", "entendido", "perfecto", "tiene sentido",
+            "y si", "qué pasa", "que pasa", "entonces", "o sea", "es decir",
+            "cómo", "como", "qué es", "que es", "explicá", "explica", "explicame",
+            "por qué", "por que", "para qué", "para que", "cuándo", "cuando",
+            "diferencia", "puedo", "debería", "deberia", "recomienda", "recomendas", "conviene",
+            "optimizar", "optimización", "optimizacion", "bake", "bakear", "lightmap",
+            "occlusion", "culling", "scriptableobject", "navmesh", "profiler",
+            "draw call", "batching", "lod", "shader", "prefab", "inspector", "hierarchy", "package"
         };
 
         // ── Script keywords ───────────────────────────────────
@@ -78,9 +96,10 @@ namespace ClaudeAssistant.Utils
 
             int sceneScore = CountMatches(lower, SceneKeywords);
             int scriptScore = CountMatches(lower, ScriptKeywords);
+            int consultScore = CountMatches(lower, ConsultKeywords);
 
             if (sceneScore == 0 && scriptScore == 0)
-                return GenerationMode.Unknown;
+                return consultScore > 0 ? GenerationMode.Consult : GenerationMode.Unknown;
 
             // Rule 3: On tie, Script wins
             return sceneScore > scriptScore

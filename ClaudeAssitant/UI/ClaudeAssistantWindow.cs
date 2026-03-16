@@ -47,6 +47,7 @@ namespace ClaudeAssistant.UI
         private string _prompt = "";
         private string _scriptName = "MyGeneratedScript";
         private GenerationMode _modeOverride = GenerationMode.Unknown;
+        private GenerationMode _lastSentMode = GenerationMode.Unknown;
         private Vector2 _chatScroll;
         private Vector2 _codeScroll;
 
@@ -183,7 +184,16 @@ namespace ClaudeAssistant.UI
                     DrawMessageBubble(msg);
 
                 if (_controller.IsLoading)
-                    GUILayout.Label("⏳ Claude está pensando...", _labelSmall);
+                {
+                    string loadingLabel = _lastSentMode switch
+                    {
+                        GenerationMode.Script  => "⚙️ Generando script...",
+                        GenerationMode.Scene   => "🏗️ Construyendo escena...",
+                        GenerationMode.Consult => "💬 Claude está respondiendo...",
+                        _                      => "⏳ Procesando..."
+                    };
+                    GUILayout.Label(loadingLabel, _labelSmall);
+                }
             }
         }
 
@@ -195,6 +205,9 @@ namespace ClaudeAssistant.UI
         private void DrawCodePreview()
         {
             if (string.IsNullOrEmpty(_controller.LastCodePreview)) return;
+
+            var msgs = _controller.Messages;
+            if (msgs.Count > 0 && msgs[msgs.Count - 1].Mode == GenerationMode.Consult) return;
 
             EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
 
@@ -292,6 +305,7 @@ namespace ClaudeAssistant.UI
             {
                 string snapshot = _prompt.Trim();
                 _prompt = "";
+                _lastSentMode = _modeOverride != GenerationMode.Unknown ? _modeOverride : GenerationMode.Unknown;
                 _ = _controller.SendAsync(snapshot, _scriptName, _modeOverride);
             }
             GUI.enabled = true;

@@ -9,7 +9,7 @@ namespace ClaudeAssistant.Models
 {
     public enum MessageRole { User, Assistant, System }
 
-    public enum GenerationMode { Script, Scene, Unknown }
+    public enum GenerationMode { Script, Scene, Consult, Unknown }
 
     [Serializable]
     public class ChatMessage
