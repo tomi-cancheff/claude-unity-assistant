@@ -217,8 +217,8 @@ namespace ClaudeAssistant.UI
 
             string modeTag = msg.Mode != GenerationMode.Unknown ? $" [{msg.Mode}]" : "";
             string header = isUser
-                ? $"🧑 Vos  {msg.Timestamp:HH:mm}"
-                : $"🤖 Claude{modeTag}  {msg.Timestamp:HH:mm}";
+                ? $"{AssistantL10n.UserLabel}  {msg.Timestamp:HH:mm}"
+                : $"{AssistantL10n.AssistantLabel}{modeTag}  {msg.Timestamp:HH:mm}";
 
             GUILayout.Label(header, _labelSmall);
 

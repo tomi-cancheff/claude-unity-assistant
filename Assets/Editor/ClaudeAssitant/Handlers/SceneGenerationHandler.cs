@@ -67,12 +67,20 @@ REGLAS ESTRICTAS:
                     ScheduleExecution(scriptPath, config);
 
                 string status = config.autoExecuteSceneScripts
-                    ? "✅ Escena generada y ejecutada.\n\n" +
-                      "🏗️ Los GameObjects fueron creados en la Hierarchy.\n" +
-                      "↩️ Podés deshacer con Ctrl+Z si algo no quedó bien."
-                    : $"✅ Script de escena guardado.\n\n" +
-                      $"▶️ Ejecutalo manualmente desde el menú:\n" +
-                      $"ClaudeAssistant → Internal → ExecuteScene";
+                    ? LanguageSettings.Current == AppLanguage.English
+                        ? "✅ Scene generated and executed.\n\n" +
+                          "🏗️ GameObjects were created in the Hierarchy.\n" +
+                          "↩️ You can undo with Ctrl+Z if something looks wrong."
+                        : "✅ Escena generada y ejecutada.\n\n" +
+                          "🏗️ Los GameObjects fueron creados en la Hierarchy.\n" +
+                          "↩️ Podés deshacer con Ctrl+Z si algo no quedó bien."
+                    : LanguageSettings.Current == AppLanguage.English
+                        ? "✅ Scene script saved.\n\n" +
+                          "▶️ Run it manually from the menu:\n" +
+                          "ClaudeAssistant → Internal → ExecuteScene"
+                        : $"✅ Script de escena guardado.\n\n" +
+                          $"▶️ Ejecutalo manualmente desde el menú:\n" +
+                          $"ClaudeAssistant → Internal → ExecuteScene";
 
                 return GenerationResult.Ok(
                     raw: raw,

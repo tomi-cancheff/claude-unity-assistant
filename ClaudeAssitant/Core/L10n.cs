@@ -1,6 +1,6 @@
 namespace ClaudeAssistant.Core
 {
-    public static class L10n
+    public static class AssistantL10n
     {
         public static string Title => "Claude Game Assistant";
         public static string ConfigButton => "⚙ Config";
@@ -31,5 +31,7 @@ namespace ClaudeAssistant.Core
         public static string CodePreviewLabel => LanguageSettings.Current == AppLanguage.Spanish ? "💾 Último código generado" : "💾 Last generated code";
         public static string CopyButton => LanguageSettings.Current == AppLanguage.Spanish ? "📋 Copiar" : "📋 Copy";
         public static string LanguageToggle => LanguageSettings.Current == AppLanguage.Spanish ? "🌐 EN" : "🌐 ES";
+        public static string UserLabel => LanguageSettings.Current == AppLanguage.Spanish ? "🧑 Vos" : "🧑 You";
+        public static string AssistantLabel => "🤖 Claude";
     }
 }

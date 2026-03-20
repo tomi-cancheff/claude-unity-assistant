@@ -76,11 +76,15 @@ REGLAS ESTRICTAS:
 
                 if (raw.Contains("// EXCEEDS_LIMIT"))
                 {
-                    return GenerationResult.Fail(
-                        "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
-                        "💡 Probá dividiendo el sistema en partes:\n" +
-                        "  1. Pedí primero la clase base o el manager principal\n" +
-                        "  2. Luego pedí los scripts dependientes de a uno o dos");
+                    return GenerationResult.Fail(LanguageSettings.Current == AppLanguage.English
+                        ? "The request requires generating more than 5 scripts, which exceeds the current limit.\n\n" +
+                          "💡 Try splitting the system into parts:\n" +
+                          "  1. First request the base class or main manager\n" +
+                          "  2. Then request the dependent scripts one or two at a time"
+                        : "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
+                          "💡 Probá dividiendo el sistema en partes:\n" +
+                          "  1. Pedí primero la clase base o el manager principal\n" +
+                          "  2. Luego pedí los scripts dependientes de a uno o dos");
                 }
 
                 var scripts = CodeExtractor.ExtractAll(raw);
@@ -102,12 +106,19 @@ REGLAS ESTRICTAS:
                     string path = SaveScript(config.scriptsOutputPath, safeName, code);
                     int lines = code.Split('\n').Length;
 
+                    string displayText = LanguageSettings.Current == AppLanguage.English
+                        ? $"✅ Script generated successfully.\n\n" +
+                          $"📄 {safeName}.cs  •  {lines} lines\n" +
+                          $"📁 Saved to: {path}\n\n" +
+                          $"Attach it to a GameObject via Add Component → {safeName}"
+                        : $"✅ Script generado correctamente.\n\n" +
+                          $"📄 {safeName}.cs  •  {lines} líneas\n" +
+                          $"📁 Guardado en: {path}\n\n" +
+                          $"Adjuntalo a un GameObject con Add Component → {safeName}";
+
                     return GenerationResult.Ok(
                         raw: raw,
-                        display: $"✅ Script generado correctamente.\n\n" +
-                                 $"📄 {safeName}.cs  •  {lines} líneas\n" +
-                                 $"📁 {path}\n\n" +
-                                 $"Adjuntalo a un GameObject con Add Component → {safeName}",
+                        display: displayText,
                         codePreview: code,
                         artifactPath: path);
                 }
@@ -115,7 +126,9 @@ REGLAS ESTRICTAS:
                 var savedPaths = new List<string>();
                 var previewBldr = new StringBuilder();
                 var summaryBldr = new StringBuilder();
-                summaryBldr.AppendLine($"✅ {scripts.Count} scripts generados correctamente.\n");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? $"✅ {scripts.Count} scripts generated successfully.\n"
+                    : $"✅ {scripts.Count} scripts generados correctamente.\n");
 
                 foreach (var (fileName, code) in scripts)
                 {
@@ -124,7 +137,9 @@ REGLAS ESTRICTAS:
                     int lines = code.Split('\n').Length;
 
                     savedPaths.Add(path);
-                    summaryBldr.AppendLine($"📄 {safeName}.cs  •  {lines} líneas");
+                    summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                        ? $"📄 {safeName}.cs  •  {lines} lines"
+                        : $"📄 {safeName}.cs  •  {lines} líneas");
 
                     previewBldr.AppendLine("// ═══════════════════════════════");
                     previewBldr.AppendLine($"// {safeName}.cs");
@@ -133,8 +148,12 @@ REGLAS ESTRICTAS:
                     previewBldr.AppendLine();
                 }
 
-                summaryBldr.AppendLine($"\n📁 Guardados en: {config.scriptsOutputPath}");
-                summaryBldr.AppendLine("\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? $"\n📁 Saved to: {config.scriptsOutputPath}"
+                    : $"\n📁 Guardados en: {config.scriptsOutputPath}");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? "\nAttach each script to the corresponding GameObjects via Add Component."
+                    : "\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
 
                 return GenerationResult.Ok(
                     raw: raw,
