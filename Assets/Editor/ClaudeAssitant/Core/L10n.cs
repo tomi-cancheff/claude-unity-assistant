@@ -3,6 +3,8 @@ namespace ClaudeAssistant.Core
     public static class AssistantL10n
     {
         public static string Title => "Claude Game Assistant";
+        public static string UserLabel => LanguageSettings.Current == AppLanguage.Spanish ? "🧑 Vos" : "🧑 You";
+        public static string AssistantLabel => "🤖 Claude";
         public static string ConfigButton => "⚙ Config";
         public static string ClearButton => LanguageSettings.Current == AppLanguage.Spanish ? "🗑 Limpiar" : "🗑 Clear";
         public static string ApiKeyLabel => "API Key:";
