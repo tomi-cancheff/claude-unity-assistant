@@ -25,8 +25,6 @@ namespace ClaudeAssistant.Handlers
 {
     public class SceneGenerationHandler : IGenerationHandler
     {
-        // ── IGenerationHandler ────────────────────────────────
-
         public string Label => "🏗️ Scene";
 
         public string SystemPrompt =>
@@ -43,7 +41,10 @@ REGLAS ESTRICTAS:
 - Para 3D: agrega MeshCollider / BoxCollider y Rigidbody donde sea necesario
 - Aplica materiales solo si están en Resources/, si no, deja el default
 - Siempre incluye: using UnityEngine; using UnityEditor;
-- Sin explicaciones fuera del bloque de código";
+- Sin explicaciones fuera del bloque de código" +
+            (LanguageSettings.Current == AppLanguage.English
+                ? "\n\nRespond in English. All comments, variable names hints and messages should be in English."
+                : string.Empty);
 
         public async Task<GenerationResult> HandleAsync(
             ClaudeConfig config,
@@ -66,12 +67,20 @@ REGLAS ESTRICTAS:
                     ScheduleExecution(scriptPath, config);
 
                 string status = config.autoExecuteSceneScripts
-                    ? "✅ Escena generada y ejecutada.\n\n" +
-                      "🏗️ Los GameObjects fueron creados en la Hierarchy.\n" +
-                      "↩️ Podés deshacer con Ctrl+Z si algo no quedó bien."
-                    : $"✅ Script de escena guardado.\n\n" +
-                      $"▶️ Ejecutalo manualmente desde el menú:\n" +
-                      $"ClaudeAssistant → Internal → ExecuteScene";
+                    ? LanguageSettings.Current == AppLanguage.English
+                        ? "✅ Scene generated and executed.\n\n" +
+                          "🏗️ GameObjects were created in the Hierarchy.\n" +
+                          "↩️ You can undo with Ctrl+Z if something looks wrong."
+                        : "✅ Escena generada y ejecutada.\n\n" +
+                          "🏗️ Los GameObjects fueron creados en la Hierarchy.\n" +
+                          "↩️ Podés deshacer con Ctrl+Z si algo no quedó bien."
+                    : LanguageSettings.Current == AppLanguage.English
+                        ? "✅ Scene script saved.\n\n" +
+                          "▶️ Run it manually from the menu:\n" +
+                          "ClaudeAssistant → Internal → ExecuteScene"
+                        : $"✅ Script de escena guardado.\n\n" +
+                          $"▶️ Ejecutalo manualmente desde el menú:\n" +
+                          $"ClaudeAssistant → Internal → ExecuteScene";
 
                 return GenerationResult.Ok(
                     raw: raw,
@@ -85,8 +94,6 @@ REGLAS ESTRICTAS:
             }
         }
 
-        // ── Private helpers ───────────────────────────────────
-
         private string SaveEditorScript(string outputPath, string code)
         {
             if (!Directory.Exists(outputPath))
@@ -94,9 +101,6 @@ REGLAS ESTRICTAS:
 
             string fullPath = Path.Combine(outputPath, SceneGenerationConstants.FileName);
 
-            // If the file already exists, delete it first so Unity detects
-            // it as a new import. Without this, the AssetPostprocessor never
-            // fires when the content is identical or the file wasn't cleaned up.
             if (File.Exists(fullPath))
             {
                 AssetDatabase.DeleteAsset(fullPath);
@@ -109,22 +113,12 @@ REGLAS ESTRICTAS:
             return fullPath;
         }
 
-        /// <summary>
-        /// Registers a one-shot callback after the next asset import cycle
-        /// so Unity has compiled the new script before we invoke it.
-        /// </summary>
         private void ScheduleExecution(string scriptPath, ClaudeConfig config)
         {
             SceneScriptExecutor.Schedule(scriptPath, config.editorScriptsPath);
         }
     }
 
-    // ── Deferred executor ─────────────────────────────────────
-
-    /// <summary>
-    /// Hooks into the AssetDatabase post-import pipeline to execute
-    /// the generated scene script after compilation, then clean up.
-    /// </summary>
     public class SceneScriptExecutor : AssetPostprocessor
     {
         private static string _pendingScriptPath;
@@ -136,19 +130,15 @@ REGLAS ESTRICTAS:
             _editorScriptsFolder = editorFolder;
         }
 
-        // Unity calls this after every asset import/compile cycle
         private static void OnPostprocessAllAssets(
             string[] imported, string[] deleted,
             string[] moved, string[] movedFrom)
         {
             if (string.IsNullOrEmpty(_pendingScriptPath)) return;
 
-            // Normalize slashes before comparing — Unity may return paths with
-            // different separators depending on OS and import pipeline.
             string normalized = _pendingScriptPath.Replace("\\", "/");
             if (!Array.Exists(imported, p => p.Replace("\\", "/") == normalized)) return;
 
-            // Execute the generated static method via reflection
             try
             {
                 var method = FindGeneratedMethod();
@@ -176,7 +166,6 @@ REGLAS ESTRICTAS:
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                // Use the shared constant — single source of truth
                 var type = assembly.GetType(SceneGenerationConstants.ClassName);
                 if (type == null) continue;
 
@@ -196,7 +185,6 @@ REGLAS ESTRICTAS:
 
             EditorApplication.delayCall += () =>
             {
-                // Use the shared constant — never a raw string
                 string path = Path.Combine(folder, SceneGenerationConstants.FileName);
                 if (File.Exists(path))
                 {
