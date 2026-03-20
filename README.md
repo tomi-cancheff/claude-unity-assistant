@@ -35,6 +35,8 @@ Open the assistant from the Unity toolbar and start prototyping immediately.
 | ↩️ **Full Undo support** | Every generated scene object is registered with `Undo.RegisterCreatedObjectUndo` |
 | 💾 **Code preview panel** | Collapsible panel with the last generated code and a one-click copy button |
 | 🎯 **Intent classification** | Automatically detects whether the prompt targets a script or a scene |
+| 💬 **Consult Mode** | Ask Unity/C# questions in natural language without generating files |
+| 🌐 **Bilingual support** | Toggle between Spanish and English — UI and AI responses update instantly |
 
 ---
 
@@ -63,9 +65,9 @@ Open the assistant from the Unity toolbar and start prototyping immediately.
 
 1. Open the assistant: **Tools → Claude Game Assistant** or `Ctrl+Shift+C`
 2. Enter your API key in the **API Key** field — stored securely in `EditorPrefs`, never written to project files
-3. Type your prompt and click **✨ Enviar**
+3. Type your prompt and click **✨ Enviar** / **✨ Send**
 
-The tool auto-detects whether you want a **script** or a **scene**. You can override this with the **Modo** dropdown.
+The tool auto-detects whether you want a **script**, a **scene**, or a **consultation**. You can override this with the **Mode** dropdown.
 
 ---
 
@@ -94,7 +96,39 @@ Genera un sistema de máquina de estados con 2 estados diferentes,
   <img src="docs/images/MultiScripting.png" alt="Multi-script generation example" width="380"/>
 </p>
 
+<p align="center">
+  <img src="docs/images/ConsultMode.png" alt="Consult Mode - Unity Q&A" width="380"/>
+</p>
+
 *The assistant generates all files at once, names them correctly, and tells you exactly where they were saved.*
+
+## 💬 Consult Mode
+
+Ask Unity and C# questions directly in the chat without generating any files.
+Auto-detected from conversational input — no need to change the mode manually.
+
+Supported topics: light baking, Occlusion Culling, NavMesh, Profiler, ScriptableObjects,
+optimization, physics, animations, design patterns and general C# best practices.
+
+Examples:
+- "How do I bake lights in Unity 6?"
+- "What's the difference between Update and FixedUpdate?"
+- "How can I assign a ScriptableObject via script?"
+- "When should I use object pooling?"
+
+## 🌐 Language Support
+
+The assistant supports Spanish and English. Use the 🌐 toggle button in the toolbar
+to switch languages. The selection persists across Unity sessions via EditorPrefs.
+
+- **UI language** — all labels, buttons and messages switch instantly
+- **Claude's response language** — the system prompt updates so Claude responds
+  in the selected language
+- **Default** — Spanish
+
+<p align="center">
+  <img src="docs/images/LanguageToggle.png" alt="Language Toggle EN/ES" width="380"/>
+</p>
 
 ### Scene Mode
 
