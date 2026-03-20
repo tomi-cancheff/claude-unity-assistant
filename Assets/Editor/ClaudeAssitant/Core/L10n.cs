@@ -1,6 +1,6 @@
 namespace ClaudeAssistant.Core
 {
-    public static class L10n
+    public static class AssistantL10n
     {
         public static string Title => "Claude Game Assistant";
         public static string ConfigButton => "⚙ Config";

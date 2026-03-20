@@ -25,7 +25,7 @@ namespace ClaudeAssistant.UI
     public class ClaudeAssistantWindow : EditorWindow
     {
         [MenuItem("Tools/Claude Game Assistant %#c")]
-        public static void Open() => GetWindow<ClaudeAssistantWindow>(L10n.Title);
+        public static void Open() => GetWindow<ClaudeAssistantWindow>(AssistantL10n.Title);
 
         [SerializeField] private List<PersistedMessage> _persistedMessages = new();
         [SerializeField] private string _persistedCodePreview = "";
@@ -101,27 +101,27 @@ namespace ClaudeAssistant.UI
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                GUILayout.Label(L10n.Title, EditorStyles.boldLabel);
+                GUILayout.Label(AssistantL10n.Title, EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
 
                 GUI.enabled = !_controller.IsLoading;
-                if (GUILayout.Button(L10n.ClearButton, EditorStyles.toolbarButton, GUILayout.Width(80)))
+                if (GUILayout.Button(AssistantL10n.ClearButton, EditorStyles.toolbarButton, GUILayout.Width(80)))
                     TryClearHistory();
 
-                if (GUILayout.Button(L10n.LanguageToggle, EditorStyles.toolbarButton, GUILayout.Width(50)))
+                if (GUILayout.Button(AssistantL10n.LanguageToggle, EditorStyles.toolbarButton, GUILayout.Width(50)))
                 {
                     LanguageSettings.Toggle();
                     Repaint();
                 }
                 GUI.enabled = true;
 
-                if (GUILayout.Button(L10n.ConfigButton, EditorStyles.toolbarButton, GUILayout.Width(70)))
+                if (GUILayout.Button(AssistantL10n.ConfigButton, EditorStyles.toolbarButton, GUILayout.Width(70)))
                     Selection.activeObject = _config;
             }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(L10n.ApiKeyLabel, GUILayout.Width(56));
+                EditorGUILayout.LabelField(AssistantL10n.ApiKeyLabel, GUILayout.Width(56));
 
                 string current = _config.ApiKey;
                 string entered = EditorGUILayout.PasswordField(current);
@@ -131,10 +131,10 @@ namespace ClaudeAssistant.UI
                 if (!string.IsNullOrWhiteSpace(_config.ApiKey) && GUILayout.Button("✕", GUILayout.Width(22)))
                 {
                     if (EditorUtility.DisplayDialog(
-                        L10n.ClearApiTitle,
-                        L10n.ClearApiMessage,
-                        L10n.ClearYes,
-                        L10n.ClearNo))
+                        AssistantL10n.ClearApiTitle,
+                        AssistantL10n.ClearApiMessage,
+                        AssistantL10n.ClearYes,
+                        AssistantL10n.ClearNo))
                     {
                         _config.ClearApiKey();
                     }
@@ -155,7 +155,7 @@ namespace ClaudeAssistant.UI
 
                 if (_controller.Messages.Count == 0)
                 {
-                    EditorGUILayout.HelpBox(L10n.EmptyHint, MessageType.Info);
+                    EditorGUILayout.HelpBox(AssistantL10n.EmptyHint, MessageType.Info);
                     return;
                 }
 
@@ -166,10 +166,10 @@ namespace ClaudeAssistant.UI
                 {
                     string loadingLabel = _lastSentMode switch
                     {
-                        GenerationMode.Script => L10n.LoadingScript,
-                        GenerationMode.Scene => L10n.LoadingScene,
-                        GenerationMode.Consult => L10n.LoadingConsult,
-                        _ => L10n.LoadingDefault
+                        GenerationMode.Script => AssistantL10n.LoadingScript,
+                        GenerationMode.Scene => AssistantL10n.LoadingScene,
+                        GenerationMode.Consult => AssistantL10n.LoadingConsult,
+                        _ => AssistantL10n.LoadingDefault
                     };
                     GUILayout.Label(loadingLabel, _labelSmall);
                 }
@@ -187,9 +187,9 @@ namespace ClaudeAssistant.UI
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _previewFolded = !EditorGUILayout.Foldout(!_previewFolded, $"  {L10n.CodePreviewLabel}", true);
+                _previewFolded = !EditorGUILayout.Foldout(!_previewFolded, $"  {AssistantL10n.CodePreviewLabel}", true);
 
-                if (GUILayout.Button(L10n.CopyButton, EditorStyles.miniButton, GUILayout.Width(65)))
+                if (GUILayout.Button(AssistantL10n.CopyButton, EditorStyles.miniButton, GUILayout.Width(65)))
                 {
                     EditorGUIUtility.systemCopyBuffer = _controller.LastCodePreview;
                     Debug.Log("[ClaudeAssistant] Código copiado al portapapeles.");
@@ -245,24 +245,24 @@ namespace ClaudeAssistant.UI
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(L10n.ScriptNameLabel, GUILayout.Width(130));
+                EditorGUILayout.LabelField(AssistantL10n.ScriptNameLabel, GUILayout.Width(130));
                 _scriptName = EditorGUILayout.TextField(_scriptName);
             }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(L10n.ModeLabel, GUILayout.Width(130));
+                EditorGUILayout.LabelField(AssistantL10n.ModeLabel, GUILayout.Width(130));
                 _modeOverride = (GenerationMode)EditorGUILayout.EnumPopup(_modeOverride);
-                EditorGUILayout.LabelField(L10n.ModeAutoHint, _labelSmall, GUILayout.Width(120));
+                EditorGUILayout.LabelField(AssistantL10n.ModeAutoHint, _labelSmall, GUILayout.Width(120));
             }
 
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField(L10n.PromptLabel);
+            EditorGUILayout.LabelField(AssistantL10n.PromptLabel);
             _prompt = EditorGUILayout.TextArea(_prompt, GUILayout.Height(60));
             EditorGUILayout.Space(4);
 
             if (!_config.IsValid)
-                EditorGUILayout.HelpBox(L10n.ApiKeyWarning, MessageType.Warning);
+                EditorGUILayout.HelpBox(AssistantL10n.ApiKeyWarning, MessageType.Warning);
 
             bool canSend = !_controller.IsLoading
                 && !string.IsNullOrWhiteSpace(_prompt)
@@ -270,7 +270,7 @@ namespace ClaudeAssistant.UI
 
             GUI.enabled = canSend;
             if (GUILayout.Button(
-                _controller.IsLoading ? L10n.SendingButton : L10n.SendButton,
+                _controller.IsLoading ? AssistantL10n.SendingButton : AssistantL10n.SendButton,
                 GUILayout.Height(36)))
             {
                 string snapshot = _prompt.Trim();
@@ -284,10 +284,10 @@ namespace ClaudeAssistant.UI
         private void TryClearHistory()
         {
             if (EditorUtility.DisplayDialog(
-                L10n.ClearTitle,
-                L10n.ClearMessage,
-                L10n.ClearYes,
-                L10n.ClearNo))
+                AssistantL10n.ClearTitle,
+                AssistantL10n.ClearMessage,
+                AssistantL10n.ClearYes,
+                AssistantL10n.ClearNo))
             {
                 _controller.ClearHistory();
                 _persistedMessages.Clear();
