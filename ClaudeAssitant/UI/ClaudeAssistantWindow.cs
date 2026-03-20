@@ -24,25 +24,14 @@ namespace ClaudeAssistant.UI
 {
     public class ClaudeAssistantWindow : EditorWindow
     {
-        // ── Menu entry ────────────────────────────────────────
-
-        [MenuItem("Tools/Claude Game Assistant %#c")]   // Ctrl+Shift+C
-        public static void Open() => GetWindow<ClaudeAssistantWindow>("🤖 Claude Assistant");
-
-        // ── Persistence across domain reloads ─────────────────
-        // Unity serializes [SerializeField] on EditorWindows and restores
-        // them after recompilation. We mirror the history here as plain
-        // serializable DTOs and rebuild the controller from them on OnEnable.
+        [MenuItem("Tools/Claude Game Assistant %#c")]
+        public static void Open() => GetWindow<ClaudeAssistantWindow>(AssistantL10n.Title);
 
         [SerializeField] private List<PersistedMessage> _persistedMessages = new();
         [SerializeField] private string _persistedCodePreview = "";
 
-        // ── Dependencies ──────────────────────────────────────
-
         private ClaudeConfig _config;
         private ConversationController _controller;
-
-        // ── UI state ──────────────────────────────────────────
 
         private string _prompt = "";
         private string _scriptName = "MyGeneratedScript";
@@ -51,28 +40,26 @@ namespace ClaudeAssistant.UI
         private Vector2 _chatScroll;
         private Vector2 _codeScroll;
 
-        // ── Styles (lazily initialized) ───────────────────────
-
         private GUIStyle _userBubble;
         private GUIStyle _assistantBubble;
         private GUIStyle _labelSmall;
         private bool _stylesInitialized;
 
-        // ── Unity lifecycle ───────────────────────────────────
+        private Vector2 _previewScroll;
+        private bool _previewFolded;
 
         private void OnEnable()
         {
             _config = LoadOrCreateConfig();
 
-            // Rebuild history from persisted messages (survives recompile)
             var history = new ConversationHistory();
             foreach (var pm in _persistedMessages)
                 history.Add(pm.ToChatMessage());
 
             _controller = new ConversationController(_config, history);
             _controller.OnConversationUpdated += OnConversationUpdated;
+            LanguageSettings.OnLanguageChanged += Repaint;
 
-            // Restore last code preview
             if (!string.IsNullOrEmpty(_persistedCodePreview))
                 _controller.RestoreCodePreview(_persistedCodePreview);
 
@@ -84,17 +71,16 @@ namespace ClaudeAssistant.UI
             _controller?.Cancel();
             if (_controller != null)
                 _controller.OnConversationUpdated -= OnConversationUpdated;
+            LanguageSettings.OnLanguageChanged -= Repaint;
         }
 
         private void OnConversationUpdated()
         {
-            // Sync serializable mirror so history survives next recompile
             _persistedMessages.Clear();
             foreach (var msg in _controller.Messages)
                 _persistedMessages.Add(PersistedMessage.From(msg));
 
             _persistedCodePreview = _controller.LastCodePreview ?? "";
-
             _chatScroll.y = float.MaxValue;
             Repaint();
         }
@@ -111,53 +97,53 @@ namespace ClaudeAssistant.UI
             DrawInputArea();
         }
 
-        // ── Toolbar ───────────────────────────────────────────
-
         private void DrawToolbar()
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                GUILayout.Label("Claude Game Assistant", EditorStyles.boldLabel);
+                GUILayout.Label(AssistantL10n.Title, EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("⚙ Config", EditorStyles.toolbarButton, GUILayout.Width(70)))
-                    Selection.activeObject = _config;
-
                 GUI.enabled = !_controller.IsLoading;
-                if (GUILayout.Button("🗑 Clear", EditorStyles.toolbarButton, GUILayout.Width(60)))
+                if (GUILayout.Button(AssistantL10n.ClearButton, EditorStyles.toolbarButton, GUILayout.Width(80)))
                     TryClearHistory();
+
+                if (GUILayout.Button(AssistantL10n.LanguageToggle, EditorStyles.toolbarButton, GUILayout.Width(50)))
+                {
+                    LanguageSettings.Toggle();
+                    Repaint();
+                }
                 GUI.enabled = true;
+
+                if (GUILayout.Button(AssistantL10n.ConfigButton, EditorStyles.toolbarButton, GUILayout.Width(70)))
+                    Selection.activeObject = _config;
             }
 
-            // API Key — stored in EditorPrefs, never serialized in the .asset
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("API Key:", GUILayout.Width(56));
+                EditorGUILayout.LabelField(AssistantL10n.ApiKeyLabel, GUILayout.Width(56));
 
                 string current = _config.ApiKey;
                 string entered = EditorGUILayout.PasswordField(current);
                 if (entered != current)
                     _config.ApiKey = entered;
 
-                if (!string.IsNullOrWhiteSpace(_config.ApiKey))
+                if (!string.IsNullOrWhiteSpace(_config.ApiKey) && GUILayout.Button("✕", GUILayout.Width(22)))
                 {
-                    if (GUILayout.Button("✕", GUILayout.Width(22)))
+                    if (EditorUtility.DisplayDialog(
+                        AssistantL10n.ClearApiTitle,
+                        AssistantL10n.ClearApiMessage,
+                        AssistantL10n.ClearYes,
+                        AssistantL10n.ClearNo))
                     {
-                        if (EditorUtility.DisplayDialog(
-                            "Clear API Key",
-                            "Remove the stored API key from this machine?",
-                            "Yes", "No"))
-                            _config.ClearApiKey();
+                        _config.ClearApiKey();
                     }
                 }
             }
         }
 
-        // ── Chat history ──────────────────────────────────────
-
         private void DrawChatHistory()
         {
-            // Reserve space for code preview panel when it's visible
             bool hasPreview = !string.IsNullOrEmpty(_controller.LastCodePreview);
             float reservedBottom = hasPreview ? 390 : 230;
             float historyHeight = position.height - reservedBottom;
@@ -169,14 +155,7 @@ namespace ClaudeAssistant.UI
 
                 if (_controller.Messages.Count == 0)
                 {
-                    EditorGUILayout.HelpBox(
-                        "👋 Hola! Describí lo que querés crear.\n\n" +
-                        "Ejemplos:\n" +
-                        "• \"Creá un nivel 2D con 6 plataformas en zigzag\"\n" +
-                        "• \"Script de controlador de jugador con salto y coyote time\"\n" +
-                        "• \"Armá una habitación 3D 10x10 con paredes y techo\"\n" +
-                        "• \"Sistema de vida con daño e invencibilidad temporal\"",
-                        MessageType.Info);
+                    EditorGUILayout.HelpBox(AssistantL10n.EmptyHint, MessageType.Info);
                     return;
                 }
 
@@ -187,20 +166,15 @@ namespace ClaudeAssistant.UI
                 {
                     string loadingLabel = _lastSentMode switch
                     {
-                        GenerationMode.Script  => "⚙️ Generando script...",
-                        GenerationMode.Scene   => "🏗️ Construyendo escena...",
-                        GenerationMode.Consult => "💬 Claude está respondiendo...",
-                        _                      => "⏳ Procesando..."
+                        GenerationMode.Script => AssistantL10n.LoadingScript,
+                        GenerationMode.Scene => AssistantL10n.LoadingScene,
+                        GenerationMode.Consult => AssistantL10n.LoadingConsult,
+                        _ => AssistantL10n.LoadingDefault
                     };
                     GUILayout.Label(loadingLabel, _labelSmall);
                 }
             }
         }
-
-        // ── Code preview panel ────────────────────────────────
-
-        private Vector2 _previewScroll;
-        private bool _previewFolded = false;
 
         private void DrawCodePreview()
         {
@@ -213,9 +187,9 @@ namespace ClaudeAssistant.UI
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _previewFolded = !EditorGUILayout.Foldout(!_previewFolded, "  💾 Último código generado", true);
+                _previewFolded = !EditorGUILayout.Foldout(!_previewFolded, $"  {AssistantL10n.CodePreviewLabel}", true);
 
-                if (GUILayout.Button("📋 Copiar", EditorStyles.miniButton, GUILayout.Width(65)))
+                if (GUILayout.Button(AssistantL10n.CopyButton, EditorStyles.miniButton, GUILayout.Width(65)))
                 {
                     EditorGUIUtility.systemCopyBuffer = _controller.LastCodePreview;
                     Debug.Log("[ClaudeAssistant] Código copiado al portapapeles.");
@@ -243,8 +217,8 @@ namespace ClaudeAssistant.UI
 
             string modeTag = msg.Mode != GenerationMode.Unknown ? $" [{msg.Mode}]" : "";
             string header = isUser
-                ? $"🧑 Vos  {msg.Timestamp:HH:mm}"
-                : $"🤖 Claude{modeTag}  {msg.Timestamp:HH:mm}";
+                ? $"{AssistantL10n.UserLabel}  {msg.Timestamp:HH:mm}"
+                : $"{AssistantL10n.AssistantLabel}{modeTag}  {msg.Timestamp:HH:mm}";
 
             GUILayout.Label(header, _labelSmall);
 
@@ -265,34 +239,30 @@ namespace ClaudeAssistant.UI
             EditorGUILayout.Space(6);
         }
 
-        // ── Input area ────────────────────────────────────────
-
         private void DrawInputArea()
         {
             EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Nombre del script:", GUILayout.Width(130));
+                EditorGUILayout.LabelField(AssistantL10n.ScriptNameLabel, GUILayout.Width(130));
                 _scriptName = EditorGUILayout.TextField(_scriptName);
             }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Modo:", GUILayout.Width(130));
+                EditorGUILayout.LabelField(AssistantL10n.ModeLabel, GUILayout.Width(130));
                 _modeOverride = (GenerationMode)EditorGUILayout.EnumPopup(_modeOverride);
-                EditorGUILayout.LabelField("(Unknown = auto)", _labelSmall, GUILayout.Width(120));
+                EditorGUILayout.LabelField(AssistantL10n.ModeAutoHint, _labelSmall, GUILayout.Width(120));
             }
 
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Describí lo que querés:");
+            EditorGUILayout.LabelField(AssistantL10n.PromptLabel);
             _prompt = EditorGUILayout.TextArea(_prompt, GUILayout.Height(60));
             EditorGUILayout.Space(4);
 
             if (!_config.IsValid)
-                EditorGUILayout.HelpBox(
-                    "⚠ Ingresá tu API key arriba. Se guarda en tu máquina, nunca en el proyecto.",
-                    MessageType.Warning);
+                EditorGUILayout.HelpBox(AssistantL10n.ApiKeyWarning, MessageType.Warning);
 
             bool canSend = !_controller.IsLoading
                 && !string.IsNullOrWhiteSpace(_prompt)
@@ -300,7 +270,7 @@ namespace ClaudeAssistant.UI
 
             GUI.enabled = canSend;
             if (GUILayout.Button(
-                _controller.IsLoading ? "⏳ Generando..." : "✨ Enviar",
+                _controller.IsLoading ? AssistantL10n.SendingButton : AssistantL10n.SendButton,
                 GUILayout.Height(36)))
             {
                 string snapshot = _prompt.Trim();
@@ -311,14 +281,13 @@ namespace ClaudeAssistant.UI
             GUI.enabled = true;
         }
 
-        // ── Helpers ───────────────────────────────────────────
-
         private void TryClearHistory()
         {
             if (EditorUtility.DisplayDialog(
-                "Borrar conversación",
-                "¿Seguro que querés borrar todo el historial?",
-                "Sí", "No"))
+                AssistantL10n.ClearTitle,
+                AssistantL10n.ClearMessage,
+                AssistantL10n.ClearYes,
+                AssistantL10n.ClearNo))
             {
                 _controller.ClearHistory();
                 _persistedMessages.Clear();
@@ -344,8 +313,6 @@ namespace ClaudeAssistant.UI
             Debug.Log($"[ClaudeAssistant] Config creado en {configPath}. Ingresá tu API key en la ventana.");
             return cfg;
         }
-
-        // ── Styles ────────────────────────────────────────────
 
         private void InitStylesOnce()
         {

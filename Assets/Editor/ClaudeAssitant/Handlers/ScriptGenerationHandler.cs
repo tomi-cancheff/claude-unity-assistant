@@ -26,17 +26,15 @@ namespace ClaudeAssistant.Handlers
 {
     public class ScriptGenerationHandler : IGenerationHandler
     {
-        // Maximum scripts allowed per single generation request.
-        // Beyond this the user gets a clear message to split the request.
         private const int MAX_SCRIPTS = 5;
-
-        // ── IGenerationHandler ────────────────────────────────
 
         public string Label => "📄 Script";
 
-        // SystemPrompt is built dynamically so Claude always uses the exact
-        // name the user chose for both the C# class and the FileName hint.
         public string SystemPrompt => BuildSystemPrompt("GeneratedScript");
+
+        private static string LanguageInstruction => LanguageSettings.Current == AppLanguage.English
+            ? "\n\nRespond in English. All comments, variable names hints and messages should be in English."
+            : string.Empty;
 
         private string BuildSystemPrompt(string scriptName) =>
             $@"Eres un experto en Unity3D y C#. Tu única tarea es generar scripts C# para Unity.
@@ -61,7 +59,7 @@ REGLAS ESTRICTAS:
 - Usa UnityEvent para desacoplar componentes cuando sea útil
 - Agrega comentarios XML en métodos públicos
 - Si el sistema requiere más de 5 scripts, indicalo con un comentario al inicio
-  antes del primer bloque: // EXCEEDS_LIMIT";
+  antes del primer bloque: // EXCEEDS_LIMIT" + LanguageInstruction;
 
         public async Task<GenerationResult> HandleAsync(
             ClaudeConfig config,
@@ -71,22 +69,22 @@ REGLAS ESTRICTAS:
         {
             try
             {
-                // Build a dynamic system prompt that includes the user's chosen
-                // script name so Claude uses it for both the class name and the
-                // FileName hint — Unity requires both to match.
                 string systemPrompt = BuildSystemPrompt(SanitizeName(scriptName));
 
                 string raw = await ClaudeApiClient.Instance.SendAsync(
                     config, history, systemPrompt);
 
-                // Hard limit check — Claude signals this with a comment
                 if (raw.Contains("// EXCEEDS_LIMIT"))
                 {
-                    return GenerationResult.Fail(
-                        "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
-                        "💡 Probá dividiendo el sistema en partes:\n" +
-                        "  1. Pedí primero la clase base o el manager principal\n" +
-                        "  2. Luego pedí los scripts dependientes de a uno o dos");
+                    return GenerationResult.Fail(LanguageSettings.Current == AppLanguage.English
+                        ? "The request requires generating more than 5 scripts, which exceeds the current limit.\n\n" +
+                          "💡 Try splitting the system into parts:\n" +
+                          "  1. First request the base class or main manager\n" +
+                          "  2. Then request the dependent scripts one or two at a time"
+                        : "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
+                          "💡 Probá dividiendo el sistema en partes:\n" +
+                          "  1. Pedí primero la clase base o el manager principal\n" +
+                          "  2. Luego pedí los scripts dependientes de a uno o dos");
                 }
 
                 var scripts = CodeExtractor.ExtractAll(raw);
@@ -94,7 +92,6 @@ REGLAS ESTRICTAS:
                 if (scripts.Count == 0)
                     return GenerationResult.Fail("Claude devolvió una respuesta vacía o sin bloques de código.");
 
-                // Double-check limit on our side regardless of Claude's hint
                 if (scripts.Count > MAX_SCRIPTS)
                 {
                     return GenerationResult.Fail(
@@ -102,7 +99,6 @@ REGLAS ESTRICTAS:
                         "💡 Probá dividiendo el sistema en partes más pequeñas.");
                 }
 
-                // Single script — use the user-provided name as filename
                 if (scripts.Count == 1)
                 {
                     string safeName = SanitizeName(scriptName);
@@ -110,21 +106,29 @@ REGLAS ESTRICTAS:
                     string path = SaveScript(config.scriptsOutputPath, safeName, code);
                     int lines = code.Split('\n').Length;
 
+                    string displayText = LanguageSettings.Current == AppLanguage.English
+                        ? $"✅ Script generated successfully.\n\n" +
+                          $"📄 {safeName}.cs  •  {lines} lines\n" +
+                          $"📁 Saved to: {path}\n\n" +
+                          $"Attach it to a GameObject via Add Component → {safeName}"
+                        : $"✅ Script generado correctamente.\n\n" +
+                          $"📄 {safeName}.cs  •  {lines} líneas\n" +
+                          $"📁 Guardado en: {path}\n\n" +
+                          $"Adjuntalo a un GameObject con Add Component → {safeName}";
+
                     return GenerationResult.Ok(
                         raw: raw,
-                        display: $"✅ Script generado correctamente.\n\n" +
-                                      $"📄 {safeName}.cs  •  {lines} líneas\n" +
-                                      $"📁 {path}\n\n" +
-                                      $"Adjuntalo a un GameObject con Add Component → {safeName}",
+                        display: displayText,
                         codePreview: code,
                         artifactPath: path);
                 }
 
-                // Multiple scripts — use Claude's FileName hints
                 var savedPaths = new List<string>();
                 var previewBldr = new StringBuilder();
                 var summaryBldr = new StringBuilder();
-                summaryBldr.AppendLine($"✅ {scripts.Count} scripts generados correctamente.\n");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? $"✅ {scripts.Count} scripts generated successfully.\n"
+                    : $"✅ {scripts.Count} scripts generados correctamente.\n");
 
                 foreach (var (fileName, code) in scripts)
                 {
@@ -133,18 +137,23 @@ REGLAS ESTRICTAS:
                     int lines = code.Split('\n').Length;
 
                     savedPaths.Add(path);
-                    summaryBldr.AppendLine($"📄 {safeName}.cs  •  {lines} líneas");
+                    summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                        ? $"📄 {safeName}.cs  •  {lines} lines"
+                        : $"📄 {safeName}.cs  •  {lines} líneas");
 
-                    // Preview shows all scripts separated by a header comment
-                    previewBldr.AppendLine($"// ═══════════════════════════════");
+                    previewBldr.AppendLine("// ═══════════════════════════════");
                     previewBldr.AppendLine($"// {safeName}.cs");
-                    previewBldr.AppendLine($"// ═══════════════════════════════");
+                    previewBldr.AppendLine("// ═══════════════════════════════");
                     previewBldr.AppendLine(code);
                     previewBldr.AppendLine();
                 }
 
-                summaryBldr.AppendLine($"\n📁 Guardados en: {config.scriptsOutputPath}");
-                summaryBldr.AppendLine("\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? $"\n📁 Saved to: {config.scriptsOutputPath}"
+                    : $"\n📁 Guardados en: {config.scriptsOutputPath}");
+                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
+                    ? "\nAttach each script to the corresponding GameObjects via Add Component."
+                    : "\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
 
                 return GenerationResult.Ok(
                     raw: raw,
@@ -157,8 +166,6 @@ REGLAS ESTRICTAS:
                 return GenerationResult.Fail(ex.Message);
             }
         }
-
-        // ── Private helpers ───────────────────────────────────
 
         private string SaveScript(string outputPath, string scriptName, string code)
         {
