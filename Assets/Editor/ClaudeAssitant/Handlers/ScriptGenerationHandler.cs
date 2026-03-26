@@ -9,6 +9,11 @@
 //    parses all blocks. A hard limit (MAX_SCRIPTS) prevents runaway
 //    generation and gives the user a clear error if exceeded.
 //
+//  Overwrite protection:
+//    When config.avoidOverwrite is true, never silently overwrites
+//    an existing file. Appends _v2, _v3, etc. until a free path
+//    is found.
+//
 //  Pattern: Strategy (implements IGenerationHandler)
 // ============================================================
 
@@ -28,13 +33,11 @@ namespace ClaudeAssistant.Handlers
     {
         private const int MAX_SCRIPTS = 5;
 
+        // ── IGenerationHandler ────────────────────────────────
+
         public string Label => "📄 Script";
 
         public string SystemPrompt => BuildSystemPrompt("GeneratedScript");
-
-        private static string LanguageInstruction => LanguageSettings.Current == AppLanguage.English
-            ? "\n\nRespond in English. All comments, variable names hints and messages should be in English."
-            : string.Empty;
 
         private string BuildSystemPrompt(string scriptName) =>
             $@"Eres un experto en Unity3D y C#. Tu única tarea es generar scripts C# para Unity.
@@ -59,13 +62,13 @@ REGLAS ESTRICTAS:
 - Usa UnityEvent para desacoplar componentes cuando sea útil
 - Agrega comentarios XML en métodos públicos
 - Si el sistema requiere más de 5 scripts, indicalo con un comentario al inicio
-  antes del primer bloque: // EXCEEDS_LIMIT" + LanguageInstruction;
+  antes del primer bloque: // EXCEEDS_LIMIT";
 
         public async Task<GenerationResult> HandleAsync(
-            ClaudeConfig config,
+            ClaudeConfig      config,
             List<ChatMessage> history,
-            string userPrompt,
-            string scriptName)
+            string            userPrompt,
+            string            scriptName)
         {
             try
             {
@@ -76,15 +79,11 @@ REGLAS ESTRICTAS:
 
                 if (raw.Contains("// EXCEEDS_LIMIT"))
                 {
-                    return GenerationResult.Fail(LanguageSettings.Current == AppLanguage.English
-                        ? "The request requires generating more than 5 scripts, which exceeds the current limit.\n\n" +
-                          "💡 Try splitting the system into parts:\n" +
-                          "  1. First request the base class or main manager\n" +
-                          "  2. Then request the dependent scripts one or two at a time"
-                        : "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
-                          "💡 Probá dividiendo el sistema en partes:\n" +
-                          "  1. Pedí primero la clase base o el manager principal\n" +
-                          "  2. Luego pedí los scripts dependientes de a uno o dos");
+                    return GenerationResult.Fail(
+                        "La petición requiere generar más de 5 scripts, lo cual supera el límite actual.\n\n" +
+                        "💡 Probá dividiendo el sistema en partes:\n" +
+                        "  1. Pedí primero la clase base o el manager principal\n" +
+                        "  2. Luego pedí los scripts dependientes de a uno o dos");
                 }
 
                 var scripts = CodeExtractor.ExtractAll(raw);
@@ -99,66 +98,57 @@ REGLAS ESTRICTAS:
                         "💡 Probá dividiendo el sistema en partes más pequeñas.");
                 }
 
+                // ── Single script ─────────────────────────────
                 if (scripts.Count == 1)
                 {
                     string safeName = SanitizeName(scriptName);
-                    string code = scripts[0].code;
-                    string path = SaveScript(config.scriptsOutputPath, safeName, code);
-                    int lines = code.Split('\n').Length;
+                    string code     = scripts[0].code;
+                    string path     = SaveScript(config, safeName, code);
+                    int    lines    = code.Split('\n').Length;
 
-                    string displayText = LanguageSettings.Current == AppLanguage.English
-                        ? $"✅ Script generated successfully.\n\n" +
-                          $"📄 {safeName}.cs  •  {lines} lines\n" +
-                          $"📁 Saved to: {path}\n\n" +
-                          $"Attach it to a GameObject via Add Component → {safeName}"
-                        : $"✅ Script generado correctamente.\n\n" +
-                          $"📄 {safeName}.cs  •  {lines} líneas\n" +
-                          $"📁 Guardado en: {path}\n\n" +
-                          $"Adjuntalo a un GameObject con Add Component → {safeName}";
+                    // Use the actual saved name (may have been versioned)
+                    string savedName = Path.GetFileNameWithoutExtension(path);
 
                     return GenerationResult.Ok(
-                        raw: raw,
-                        display: displayText,
-                        codePreview: code,
+                        raw:          raw,
+                        display:      $"✅ Script generado correctamente.\n\n" +
+                                      $"📄 {savedName}.cs  •  {lines} líneas\n" +
+                                      $"📁 {path}\n\n" +
+                                      $"Adjuntalo a un GameObject con Add Component → {savedName}",
+                        codePreview:  code,
                         artifactPath: path);
                 }
 
-                var savedPaths = new List<string>();
+                // ── Multiple scripts ──────────────────────────
+                var savedPaths  = new List<string>();
                 var previewBldr = new StringBuilder();
                 var summaryBldr = new StringBuilder();
-                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
-                    ? $"✅ {scripts.Count} scripts generated successfully.\n"
-                    : $"✅ {scripts.Count} scripts generados correctamente.\n");
+                summaryBldr.AppendLine($"✅ {scripts.Count} scripts generados correctamente.\n");
 
                 foreach (var (fileName, code) in scripts)
                 {
-                    string safeName = SanitizeName(Path.GetFileNameWithoutExtension(fileName));
-                    string path = SaveScript(config.scriptsOutputPath, safeName, code);
-                    int lines = code.Split('\n').Length;
+                    string safeName  = SanitizeName(Path.GetFileNameWithoutExtension(fileName));
+                    string path      = SaveScript(config, safeName, code);
+                    string savedName = Path.GetFileNameWithoutExtension(path);
+                    int    lines     = code.Split('\n').Length;
 
                     savedPaths.Add(path);
-                    summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
-                        ? $"📄 {safeName}.cs  •  {lines} lines"
-                        : $"📄 {safeName}.cs  •  {lines} líneas");
+                    summaryBldr.AppendLine($"📄 {savedName}.cs  •  {lines} líneas");
 
-                    previewBldr.AppendLine("// ═══════════════════════════════");
-                    previewBldr.AppendLine($"// {safeName}.cs");
-                    previewBldr.AppendLine("// ═══════════════════════════════");
+                    previewBldr.AppendLine($"// ═══════════════════════════════");
+                    previewBldr.AppendLine($"// {savedName}.cs");
+                    previewBldr.AppendLine($"// ═══════════════════════════════");
                     previewBldr.AppendLine(code);
                     previewBldr.AppendLine();
                 }
 
-                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
-                    ? $"\n📁 Saved to: {config.scriptsOutputPath}"
-                    : $"\n📁 Guardados en: {config.scriptsOutputPath}");
-                summaryBldr.AppendLine(LanguageSettings.Current == AppLanguage.English
-                    ? "\nAttach each script to the corresponding GameObjects via Add Component."
-                    : "\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
+                summaryBldr.AppendLine($"\n📁 Guardados en: {config.scriptsOutputPath}");
+                summaryBldr.AppendLine("\nAdjuntalos a los GameObjects correspondientes desde Add Component.");
 
                 return GenerationResult.Ok(
-                    raw: raw,
-                    display: summaryBldr.ToString().Trim(),
-                    codePreview: previewBldr.ToString().Trim(),
+                    raw:          raw,
+                    display:      summaryBldr.ToString().Trim(),
+                    codePreview:  previewBldr.ToString().Trim(),
                     artifactPath: savedPaths[0]);
             }
             catch (System.Exception ex)
@@ -167,16 +157,40 @@ REGLAS ESTRICTAS:
             }
         }
 
-        private string SaveScript(string outputPath, string scriptName, string code)
+        // ── Private helpers ───────────────────────────────────
+
+        /// <summary>
+        /// Saves a script to disk. If config.avoidOverwrite is true and the
+        /// file already exists, appends _v2, _v3, etc. until a free path is found.
+        /// </summary>
+        private string SaveScript(ClaudeConfig config, string scriptName, string code)
         {
+            string outputPath = config.scriptsOutputPath;
+
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
 
-            string fullPath = Path.Combine(outputPath, $"{scriptName}.cs");
-            File.WriteAllText(fullPath, code);
-            AssetDatabase.ImportAsset(fullPath);
+            string basePath  = Path.Combine(outputPath, $"{scriptName}.cs");
+            string finalPath = basePath;
+
+            // Overwrite protection — find next available versioned name
+            if (config.avoidOverwrite && File.Exists(basePath))
+            {
+                int version = 2;
+                do
+                {
+                    finalPath = Path.Combine(outputPath, $"{scriptName}_v{version}.cs");
+                    version++;
+                }
+                while (File.Exists(finalPath));
+
+                Debug.Log($"[ClaudeAssistant] '{scriptName}.cs' already exists — saving as '{Path.GetFileName(finalPath)}'");
+            }
+
+            File.WriteAllText(finalPath, code);
+            AssetDatabase.ImportAsset(finalPath);
             AssetDatabase.Refresh();
-            return fullPath;
+            return finalPath;
         }
 
         private static string SanitizeName(string name)

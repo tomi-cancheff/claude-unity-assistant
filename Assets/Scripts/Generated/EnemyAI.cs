@@ -3,6 +3,7 @@ using UnityEngine.Events;
 
 public class EnemyAI : MonoBehaviour
 {
+    //This script implements a simple enemy AI that detects the player within a certain range and field of view, and moves towards them while avoiding obstacles. It also includes events for when the player is detected, lost, or reached.
     [Header("Detection Settings")]
     [SerializeField] private float detectionRange = 10f;
     [SerializeField] private float fieldOfViewAngle = 60f;

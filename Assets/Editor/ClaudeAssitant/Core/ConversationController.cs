@@ -22,7 +22,6 @@ namespace ClaudeAssistant.Core
     public class ConversationController
     {
         // ── Registered strategies ─────────────────────────────
-        // Handlers are registered here — the Window never touches them directly.
 
         private static readonly Dictionary<GenerationMode, IGenerationHandler> _handlers = new()
         {
@@ -33,7 +32,7 @@ namespace ClaudeAssistant.Core
 
         // ── Dependencies ──────────────────────────────────────
 
-        private readonly ClaudeConfig _config;
+        private readonly ClaudeConfig        _config;
         private readonly ConversationHistory _history;
 
         // ── State ─────────────────────────────────────────────
@@ -46,6 +45,12 @@ namespace ClaudeAssistant.Core
         /// </summary>
         public string LastCodePreview { get; private set; }
 
+        /// <summary>
+        /// The file path of the last successfully saved artifact.
+        /// The Window uses this for the "Open in VS Code" button.
+        /// </summary>
+        public string LastArtifactPath { get; private set; }
+
         private CancellationTokenSource _cts;
 
         // ── Events ────────────────────────────────────────────
@@ -57,7 +62,7 @@ namespace ClaudeAssistant.Core
 
         public ConversationController(ClaudeConfig config, ConversationHistory history)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _config  = config  ?? throw new ArgumentNullException(nameof(config));
             _history = history ?? throw new ArgumentNullException(nameof(history));
         }
 
@@ -70,24 +75,19 @@ namespace ClaudeAssistant.Core
         /// Sends a user prompt through the full pipeline:
         /// classify → select handler → call API → update history.
         /// </summary>
-        /// <param name="prompt">Raw user input.</param>
-        /// <param name="artifactName">Desired script/asset name.</param>
-        /// <param name="modeOverride">Force a mode; Unknown = auto-detect.</param>
         public async Task SendAsync(
-            string prompt,
-            string artifactName,
+            string         prompt,
+            string         artifactName,
             GenerationMode modeOverride = GenerationMode.Unknown)
         {
             if (IsLoading || string.IsNullOrWhiteSpace(prompt)) return;
 
-            // Cancel any previous in-flight request
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
 
             IsLoading = true;
 
-            // Classify
             GenerationMode mode = modeOverride != GenerationMode.Unknown
                 ? modeOverride
                 : IntentClassifier.Classify(prompt);
@@ -95,7 +95,6 @@ namespace ClaudeAssistant.Core
             if (mode == GenerationMode.Unknown)
                 mode = GenerationMode.Consult;
 
-            // Add user message to history before awaiting
             _history.Add(new ChatMessage(MessageRole.User, prompt, mode));
             OnConversationUpdated?.Invoke();
 
@@ -117,22 +116,22 @@ namespace ClaudeAssistant.Core
 
                 token.ThrowIfCancellationRequested();
 
-                // Chat bubble always shows the friendly DisplayText — never raw code
                 AddAssistantMessage(result.Success ? result.DisplayText : result.DisplayText, mode);
 
                 if (result.Success)
                 {
-                    // Expose code preview for the Window panel
                     if (!string.IsNullOrEmpty(result.CodePreview))
                         LastCodePreview = result.CodePreview;
 
                     if (!string.IsNullOrEmpty(result.ArtifactPath))
+                    {
+                        LastArtifactPath = result.ArtifactPath;
                         Debug.Log($"[ClaudeAssistant] ✅ Artifact: {result.ArtifactPath}");
+                    }
                 }
             }
             catch (OperationCanceledException)
             {
-                // Silently discard — user cancelled or window was closed
                 Debug.Log("[ClaudeAssistant] Request cancelled.");
             }
             catch (Exception ex)
@@ -159,9 +158,13 @@ namespace ClaudeAssistant.Core
 
         /// <summary>
         /// Restores the last code preview after a domain reload.
-        /// Called by the Window during OnEnable.
         /// </summary>
         public void RestoreCodePreview(string code) => LastCodePreview = code;
+
+        /// <summary>
+        /// Restores the last artifact path after a domain reload.
+        /// </summary>
+        public void RestoreArtifactPath(string path) => LastArtifactPath = path;
 
         // ── Private helpers ───────────────────────────────────
 

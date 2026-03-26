@@ -16,12 +16,11 @@ namespace ClaudeAssistant.Core
 {
     [CreateAssetMenu(
         fileName = "ClaudeConfig",
-        menuName = "Claude Assistant/Configuration",
-        order = 0)]
+        menuName  = "Claude Assistant/Configuration",
+        order     = 0)]
     public class ClaudeConfig : ScriptableObject
     {
         // ── EditorPrefs key ───────────────────────────────────
-        // Internal — only used by this class.
         private const string ApiKeyPref = "ClaudeAssistant_ApiKey";
 
         // ── API Key (EditorPrefs — never serialized) ──────────
@@ -67,13 +66,19 @@ namespace ClaudeAssistant.Core
         [Tooltip("Log every API exchange to the Unity Console.")]
         public bool verboseLogging = false;
 
+        // ── File Handling ─────────────────────────────────────
+
+        [Header("File Handling")]
+        [Tooltip("If enabled, never overwrites an existing script. Appends _v2, _v3, etc. instead.")]
+        public bool avoidOverwrite = true;
+
         // ── Computed helpers ──────────────────────────────────
 
         public string ModelId => model switch
         {
-            ModelOption.Haiku => "claude-haiku-4-5-20251001",
+            ModelOption.Haiku  => "claude-haiku-4-5-20251001",
             ModelOption.Sonnet => "claude-sonnet-4-20250514",
-            _ => "claude-sonnet-4-20250514"
+            _                  => "claude-sonnet-4-20250514"
         };
 
         /// <summary>True only when a non-empty API key is present in EditorPrefs.</summary>
